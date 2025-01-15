@@ -12,6 +12,8 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 )
 
+var Version = "dev"
+
 // Device represents a Tailscale device
 type Device struct {
 	ID       string    `json:"id"`
@@ -42,12 +44,18 @@ func main() {
 		lastSeenDuration = app.Flag("last-seen-duration", "Duration to consider a device disconnected (e.g., 15m, 1h)").Default("15m").Duration()
 		exclude          = app.Flag("exclude", "Device names to exclude by partial match (can be specified multiple times)").Strings()
 		dryRun           = app.Flag("dry-run", "Run without making destructive changes").Bool()
+		showVersion      = kingpin.Flag("version", "Show the version and exit").Bool()
 	)
 
 	// Parse the command-line arguments
 	if _, err := app.Parse(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing arguments: %v\n", err)
 		os.Exit(1)
+	}
+
+	if *showVersion {
+		fmt.Println("Version:", Version)
+		os.Exit(0)
 	}
 
 	config := Config{
