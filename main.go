@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -29,6 +30,7 @@ type Config struct {
 	BaseURL         string
 	TailnetName     string
 	LastSeenTimeout time.Duration
+	ExcludedDevices []string // List of substrings for partial match exclusion
 }
 
 func main() {
@@ -38,6 +40,7 @@ func main() {
 		baseURL          = app.Flag("base-url", "Tailscale API base URL").Default("https://api.tailscale.com/api/v2").String()
 		tailnetName      = app.Flag("tailnet", "Tailscale tailnet name").Required().Envar("TAILNET_NAME").String()
 		lastSeenDuration = app.Flag("last-seen-duration", "Duration to consider a device disconnected (e.g., 15m, 1h)").Default("15m").Duration()
+		exclude          = app.Flag("exclude", "Device names to exclude by partial match (can be specified multiple times)").Strings()
 		dryRun           = app.Flag("dry-run", "Run without making destructive changes").Bool()
 	)
 
@@ -52,6 +55,7 @@ func main() {
 		BaseURL:         *baseURL,
 		TailnetName:     *tailnetName,
 		LastSeenTimeout: *lastSeenDuration,
+		ExcludedDevices: *exclude,
 	}
 
 	err := cleanDisconnectedDevices(config, *dryRun)
@@ -69,6 +73,12 @@ func cleanDisconnectedDevices(config Config, dryRun bool) error {
 
 	now := time.Now()
 	for _, device := range devices {
+		// Check if the device is in the exclusion list by partial match
+		if isExcluded(device.Name, config.ExcludedDevices) {
+			fmt.Printf("Skipping excluded device: %s (%s)\n", device.Name, device.ID)
+			continue
+		}
+
 		// Calculate time since the device was last seen
 		timeSinceLastSeen := now.Sub(device.LastSeen)
 		if timeSinceLastSeen > config.LastSeenTimeout {
@@ -86,6 +96,15 @@ func cleanDisconnectedDevices(config Config, dryRun bool) error {
 		}
 	}
 	return nil
+}
+
+func isExcluded(deviceName string, excludedList []string) bool {
+	for _, exclude := range excludedList {
+		if strings.Contains(deviceName, exclude) {
+			return true
+		}
+	}
+	return false
 }
 
 func listDevices(config Config) ([]Device, error) {
@@ -118,7 +137,7 @@ func listDevices(config Config) ([]Device, error) {
 }
 
 func deleteDevice(config Config, deviceID string) error {
-	url := fmt.Sprintf("%s/tailnet/%s/devices/%s", config.BaseURL, config.TailnetName, deviceID)
+	url := fmt.Sprintf("%s/device/%s", config.BaseURL, deviceID)
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
