@@ -1,5 +1,7 @@
 # Tailscale Cleanup Tool
 
+> **⚠️ DEPRECATED**: This tool has been deprecated in favor of `tscli delete devices`. Please use [tscli](https://github.com/jaxxstorm/tscli) instead
+
 A command-line utility for managing and cleaning up disconnected devices in your Tailscale tailnet. It identifies devices that have not been seen for a specified duration and removes them, with options for excluding certain devices and running in a dry-run mode for testing.
 
 ## Features
